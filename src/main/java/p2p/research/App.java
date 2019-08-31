@@ -14,13 +14,13 @@ public class App
     public static void main( String[] args )
     {
         Log.i(TAG, "Hello World!" );
-        demenstrate();
+        demonstrate();
         Network2D n2d = new Network2D();
 
         Log.i(TAG, "See you!" );
     }
 
-    public static void demenstrate() {
+    public static void demonstrate() {
         HandlerThread ht = new HandlerThread("Handler Thread");
         ht.start();
 
@@ -35,5 +35,6 @@ public class App
         } catch (InterruptedException e) {
             Log.w(TAG, e);
         }
+
     }
 }

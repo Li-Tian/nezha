@@ -27,6 +27,13 @@ public class HandlerThread extends Thread {
         super(name);
     }
 
+    @Override
+    public synchronized void start() {
+        super.start();
+        // Wait a short while to let the thread initialize. Or it will not work properly.
+        SystemClock.sleep(1);
+    }
+
     /**
      * Call back method that can be explicitly overridden if needed to execute some
      * setup before Looper loops.

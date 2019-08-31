@@ -235,7 +235,7 @@ public final class Log {
 //                return log.isEnabledFor(Priority.FATAL);
 //        }
         // TODO
-        return true;
+        return false;
     }
 
     /*
