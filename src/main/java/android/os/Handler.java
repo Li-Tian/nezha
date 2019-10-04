@@ -497,7 +497,7 @@ public class Handler {
         MessageQueue queue = mQueue;
         if (queue != null) {
             msg.target = this;
-            sent = queue.enqueueMessage(msg, 0);
+            sent = queue.enqueueMessage(msg, 0, true);
         }
         else {
             RuntimeException e = new RuntimeException(

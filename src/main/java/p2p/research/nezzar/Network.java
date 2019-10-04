@@ -1,14 +1,16 @@
 package p2p.research.nezzar;
 
-import java.util.Random;
+import java.util.*;
 
 public abstract class Network {
     /**
      * The node count in the network.
      */
-    public static int N = 10;
+    //public static int N = 10;
+    protected final int N;
     /** The node count in the network that a node should connect to */
-    public static int K = 3;
+    //public static int K = 3;
+    protected final int K;
     /**
      * Time to live.
      */
@@ -17,36 +19,133 @@ public abstract class Network {
     public static float BAD_NODE_RATE = 0.0f;
 
     public Node[] nodes;
-    public boolean[][] reachable;
-    public boolean[][] connected;
-    /**
-     * ping distance will be initialized to [1, 100]
-     */
-    public int[][] ping_distances;
 
-    protected Network() {
-        init();
-        construct();
+    private static class XYVector {
+        int from;
+        int to;
+
+        public XYVector(int from, int to) {
+            this.from = from;
+            this.to = to;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            XYVector xyVector = (XYVector) o;
+            return from == xyVector.from &&
+                    to == xyVector.to;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(from, to);
+        }
     }
-    private void init() {
+
+    private HashSet<XYVector> unreachable;
+    public boolean isReachable(int from, int to) {
+        return !unreachable.contains(new XYVector(from, to));
+    }
+    public void setReachable(int from, int to, boolean reach) {
+        if (!reach) {
+            unreachable.add(new XYVector(from, to));
+        } else {
+            unreachable.remove(new XYVector(from, to));
+        }
+    }
+
+    private HashSet<XYVector> connected;
+    public boolean isConnected(int from, int to) {
+        return connected.contains(new XYVector(from, to));
+    }
+    public void setConnected(int from, int to, boolean c) {
+        if (c) {
+            connected.add(new XYVector(from, to));
+        } else {
+            connected.remove(new XYVector(from, to));
+        }
+    }
+
+    private HashSet<XYVector> pingConnected;
+    public boolean isPingConnected(int from, int to) {
+        return pingConnected.contains(new XYVector(from, to));
+    }
+    public void setPingConnected(int from, int to, boolean c) {
+        if (c) {
+            pingConnected.add(new XYVector(from, to));
+        } else {
+            pingConnected.remove(new XYVector(from, to));
+        }
+    }
+
+    private Random rnd;
+    /**
+     * ping getDistance will be initialized to [1, 100]
+     */
+    private HashMap<XYVector, Integer> pingDistances;
+    public int getPingDistance(int from, int to) {
+        XYVector vector = new XYVector(from, to);
+        if (!pingDistances.containsKey(vector)) {
+            pingDistances.put(vector, rnd.nextInt(100));
+        }
+        return pingDistances.get(vector);
+    }
+
+    protected Network(int n, int k) {
+        N = n;
+        K = k;
+        initNodes();
+        initMatrix();
+    }
+
+    protected Network(int n, int k, Iterator<String> values) {
+        N = n;
+        K = k;
+        initNodes3(values);
+        initMatrix();
+    }
+
+    private void initNodes() {
         nodes = new Node[N];
-        for (int i = 0; i < N ; i++) {
+        for (int i = 0; i < N; i++) {
             nodes[i] = new Node(i, BAD_NODE_RATE);
         }
-        reachable = new boolean[N][N];
-        connected = new boolean[N][N];
-        ping_distances = new int[N][N];
-        Random rnd = new Random();
+    }
+
+    private void initNodes2(Iterator<Integer> values) {
+        nodes = new Node[N];
         for (int i = 0; i < N; i++) {
-            reachable[i][i] = false;
+            nodes[i] = new Node(i, values.next(), values.next());
+        }
+    }
+    private void initNodes3(Iterator<String> values) {
+        nodes = new Node[N];
+        for (int i = 0; i < N; i++) {
+            nodes[i] = new Node(i, values.next());
+        }
+    }
+    private void initMatrix() {
+        unreachable = new HashSet<>();
+        connected = new HashSet<>();
+        pingConnected = new HashSet<>();
+        pingDistances = new HashMap<>();
+        rnd = new Random();
+        for (int i = 0; i < N; i++) {
+            setReachable(i, i, false);
             for (int j = i + 1; j < N; j++) {
-                reachable[i][j] = rnd.nextFloat() > DISABLE_RATE;
-                reachable[j][i] = reachable[i][j];
-                ping_distances[i][j] = rnd.nextInt(100);
-                ping_distances[j][i] = ping_distances[i][j];
+                setReachable(i, j, rnd.nextFloat() >= DISABLE_RATE);
+                setReachable(j, i, isReachable(i, j));
             }
         }
     }
 
-    protected abstract void construct();
+    public int getN() {
+        return N;
+    }
+    public int getK() {
+        return K;
+    }
+
 }

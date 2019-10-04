@@ -30,8 +30,6 @@ public class HandlerThread extends Thread {
     @Override
     public synchronized void start() {
         super.start();
-        // Wait a short while to let the thread initialize. Or it will not work properly.
-        SystemClock.sleep(1);
     }
 
     /**
@@ -42,12 +40,12 @@ public class HandlerThread extends Thread {
     }
 
     public void run() {
-        Looper.prepare();
         synchronized (this) {
+            Looper.prepare();
             mLooper = Looper.myLooper();
+            onLooperPrepared();
             notifyAll();
         }
-        onLooperPrepared();
         Looper.loop();
     }
 
@@ -58,12 +56,12 @@ public class HandlerThread extends Thread {
      * @return The looper.
      */
     public Looper getLooper() {
-        if (!isAlive()) {
-            return null;
-        }
-
-        // If the thread has been started, wait until the looper has been created.
         synchronized (this) {
+            if (!isAlive()) {
+                //System.out.println("Handler thread is not up yet");
+                return null;
+            }
+            // If the thread has been started, wait until the looper has been created.
             while (isAlive() && mLooper == null) {
                 try {
                     wait();

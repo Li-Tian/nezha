@@ -277,6 +277,10 @@ public class MessageQueue {
     }
 
     final boolean enqueueMessage(Message msg, long when) {
+        return enqueueMessage(msg, when, false);
+    }
+
+    final boolean enqueueMessage(Message msg, long when, boolean atFront) {
         if (msg.isInUse()) {
             throw new RuntimeException(msg + " This message is already in use.");
         }
@@ -295,7 +299,7 @@ public class MessageQueue {
 
             msg.when = when;
             Message p = mMessages;
-            if (p == null || when == 0 || when < p.when) {
+            if (p == null || when < p.when || (atFront && (when == 0))) {
                 // New head, wake up the event queue if blocked.
                 msg.next = p;
                 mMessages = msg;
@@ -309,7 +313,7 @@ public class MessageQueue {
                 for (;;) {
                     prev = p;
                     p = p.next;
-                    if (p == null || when < p.when) {
+                    if (p == null || when < p.when || ((when == p.when) && atFront)) {
                         break;
                     }
                     if (needWake && p.isAsynchronous()) {
