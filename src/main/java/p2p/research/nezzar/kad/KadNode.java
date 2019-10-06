@@ -121,7 +121,6 @@ public class KadNode {
         return allContacts.stream().reduce(farther).get();
     }
 
-    // TODO 这里需要修改算法
     /**
      * 被询问方返回查询结果时，首先查看目标节点联系人列表中的所有的空bit位。
      * 查看本地所有节点，尽量满足填充目标的联系人列表中最高空bit位以下的更高的bit位（*）。
