@@ -29,7 +29,8 @@ public class NetworkKad2Test {
         long t1 = SystemClock.uptimeMillis();
         Log.i(TAG, "Basic info initialized : " + t1);
         network.construct();
-        Log.i(TAG, "Basic info initialized at cost of : " + t1);
+        long t2 = SystemClock.uptimeMillis();
+        Log.i(TAG, "Basic info initialized at cost of : " + (t2 - t1));
         NetworkKad2.Report report = network.verifyFull();
         Log.i(TAG, report.toString());
         assertEquals(report.tryCount, report.successCount);
@@ -54,7 +55,8 @@ public class NetworkKad2Test {
         long t1 = SystemClock.uptimeMillis();
         Log.i(TAG, "Basic info initialized : " + t1);
         network.construct();
-        Log.i(TAG, "Basic info initialized at cost of : " + t1);
+        long t2 = SystemClock.uptimeMillis();
+        Log.i(TAG, "Basic info initialized at cost of : " + (t2 - t1));
         NetworkKad2.Report report = network.verifyFull();
         Log.i(TAG, report.toString());
         assertEquals(report.tryCount, report.successCount);
@@ -81,7 +83,8 @@ public class NetworkKad2Test {
         long t1 = SystemClock.uptimeMillis();
         Log.i(TAG, "Basic info initialized : " + t1);
         network.construct();
-        Log.i(TAG, "Basic info initialized at cost of : " + t1);
+        long t2 = SystemClock.uptimeMillis();
+        Log.i(TAG, "Basic info initialized at cost of : " + (t2 - t1));
         NetworkKad2.Report report = network.verifyFull();
         Log.i(TAG, report.toString());
         assertEquals(report.tryCount, report.successCount);
@@ -108,7 +111,8 @@ public class NetworkKad2Test {
         long t1 = SystemClock.uptimeMillis();
         Log.i(TAG, "Basic info initialized : " + t1);
         network.construct();
-        Log.i(TAG, "Basic info initialized at cost of : " + t1);
+        long t2 = SystemClock.uptimeMillis();
+        Log.i(TAG, "Basic info initialized at cost of : " + (t2 - t1));
         NetworkKad2.Report report = network.verifyFull();
         Log.i(TAG, report.toString());
         assertEquals(report.tryCount, report.successCount);
@@ -122,7 +126,8 @@ public class NetworkKad2Test {
         long t1 = SystemClock.uptimeMillis();
         Log.i(TAG, "Basic info initialized : " + t1);
         network.construct();
-        Log.i(TAG, "Basic info initialized at cost of : " + t1);
+        long t2 = SystemClock.uptimeMillis();
+        Log.i(TAG, "Basic info initialized at cost of : " + (t2 - t1));
         NetworkKad2.Report report = network.verifyFull();
         Log.i(TAG, report.toString());
         assertEquals(report.tryCount, report.successCount);
@@ -136,7 +141,8 @@ public class NetworkKad2Test {
         long t1 = SystemClock.uptimeMillis();
         Log.i(TAG, "Basic info initialized : " + t1);
         network.construct();
-        Log.i(TAG, "Basic info initialized at cost of : " + t1);
+        long t2 = SystemClock.uptimeMillis();
+        Log.i(TAG, "Basic info initialized at cost of : " + (t2 - t1));
         NetworkKad2.Report report = network.verifyFull();
         Log.i(TAG, report.toString());
         assertEquals(report.tryCount, report.successCount);
@@ -253,26 +259,53 @@ public class NetworkKad2Test {
         long t1 = SystemClock.uptimeMillis();
         Log.i(TAG, "Basic info initialized : " + t1);
         network.construct();
-        Log.i(TAG, "Basic info initialized at cost of : " + t1);
+        long t2 = SystemClock.uptimeMillis();
+        Log.i(TAG, "Basic info initialized at cost of : " + (t2 - t1));
         NetworkKad2.Report report = network.verifyFull();
         Log.i(TAG, report.toString());
         assertEquals(report.tryCount, report.successCount);
     }
 
 
-//    @Test
-//    public void testRoute7() {
-//        int n = 1000;
-//        int k = 3;
-//        NetworkKad2 network = new NetworkKad2(n, k);
-//        long t1 = SystemClock.uptimeMillis();
-//        Log.i(TAG, "Basic info initialized : " + t1);
-//        network.construct();
-//        Log.i(TAG, "Basic info initialized at cost of : " + t1);
-//        NetworkKad2.Report report = network.verifyFull();
-//        Log.i(TAG, report.toString());
-//        assertEquals(report.tryCount, report.successCount);
-//    }
+    @Test
+    public void testRoute7() {
+        int n = 1000;
+        int k = 3;
+        int r = 10000;
+        NetworkKad2 network = new NetworkKad2(n, k);
+        long t1 = SystemClock.uptimeMillis();
+        Log.i(TAG, "Basic info initialized : " + t1);
+        network.construct();
+        long t2 = SystemClock.uptimeMillis();
+        Log.i(TAG, "Basic info initialized at cost of : " + (t2 - t1));
+        NetworkKad2.Report report = network.verifyRandom(r);
+        long t3 = SystemClock.uptimeMillis();
+        Log.i(TAG, "Basic info initialized : " + t1);
+        Log.i(TAG, "Basic info initialized at cost of : " + (t2 - t1));
+        Log.i(TAG, "routing test : " + (t3 - t2));
+        Log.i(TAG, report.toString());
+        assertEquals(report.tryCount, report.successCount);
+        int contactSizeSum = 0;
+        int minContactSize = 768;
+        int maxContactSize = 0;
+        for (KadNode2 kadNode2 : network.nodesInNetwork) {
+            int currentContactSize = 0;
+            for (int i = 0; i < 256; i++) {
+                int size = kadNode2.sizeAt(i);
+                currentContactSize += size;
+                if (size > k) {
+                    Log.i(TAG, String.format("node(%d)[%d]:%d", kadNode2.node.index, i, size));
+                    fail(String.format("node(%d)[%d]:%d", kadNode2.node.index, i, size));
+                }
+            }
+            minContactSize = Math.min(minContactSize, currentContactSize);
+            maxContactSize = Math.max(maxContactSize, currentContactSize);
+            contactSizeSum += currentContactSize;
+        }
+        Log.i(TAG, "min connection count : " + (minContactSize));
+        Log.i(TAG, "max connection count : " + (maxContactSize));
+        Log.i(TAG, "average connection count : " + (contactSizeSum / n));
+    }
 
 
 }

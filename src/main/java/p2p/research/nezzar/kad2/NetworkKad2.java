@@ -170,9 +170,6 @@ public class NetworkKad2 extends Network {
         if (refBitIndex < 0 || refBitIndex > 255) {
             return;
         }
-        if (target.node.index == 72) {
-            Log.i(TAG, String.format(" query %d for %d on %d", reference.node.index, target.node.index, refBitIndex));
-        }
         KadNode2 nextContact = reference.getNextContact(target, refBitIndex);
         // 4.发起下一个bit位的查询
         if (nextContact != null) {
@@ -187,8 +184,8 @@ public class NetworkKad2 extends Network {
 
         if (nextContact != null) {
             Log.i(TAG, "  connect " + target.node.index + " and " + nextContact.node.index + " on " + refBitIndex);
-            target.contacts.get(refBitIndex).add(nextContact);
-            nextContact.contacts.get(refBitIndex).add(target);
+            target.addAt(refBitIndex, nextContact);
+            nextContact.addAt(refBitIndex, target);
 
             // 1.调整 target
             // 2.调整 nextContact
@@ -203,17 +200,9 @@ public class NetworkKad2 extends Network {
             );
             kh.sendMessageAtFrontOfQueue(launchBroadcast);
             // 2.调整 nextContact
-            Message adjustReference = kh.obtainMessage(
-                    ADJUST,
-                    nextContact.node.index,
-                    refBitIndex);
-            kh.sendMessageAtFrontOfQueue(adjustReference);
+            scheduleToAdjust(nextContact, refBitIndex);
             // 1.调整 target
-            Message adjustTarget = kh.obtainMessage(
-                    ADJUST,
-                    target.node.index,
-                    refBitIndex);
-            kh.sendMessageAtFrontOfQueue(adjustTarget);
+            scheduleToAdjust(target, refBitIndex);
         }
 
     }
@@ -232,9 +221,9 @@ public class NetworkKad2 extends Network {
      * @param bitIndex 对应的bit索引
      */
     private void adjust(KadNode2 target, int bitIndex) {
-        if (target.contacts.get(bitIndex).size() > K) {
+        if (target.sizeAt(bitIndex) > K) {
             List<KadNode2> disconnectRange = new ArrayList<>();
-            disconnectRange.addAll(target.contacts.get(bitIndex));
+            disconnectRange.addAll(target.dataAt(bitIndex));
             Log.i(TAG, "  adjust " + target.node.index + " at " + bitIndex);
             // 原则一：保留一个 在线时间最长的节点。
             KadNode2 longTermContact = disconnectRange.stream().reduce((a, b)->a.node.index < b.node.index ? a : b).get();
@@ -248,34 +237,34 @@ public class NetworkKad2 extends Network {
                 throw new RuntimeException("K should be greater than or equal to 3");
             }
             // 原则三：切断一个当前 bit 位列表联系人数量大于1，且地址距离最远的节点。
-            BinaryOperator<KadNode2> xorFarther = (a, b)->{
+            BinaryOperator<KadNode2> farther = (a, b)->{
                 return target.getAbsoluteDistanceValueFrom(a).compareTo(
                         target.getAbsoluteDistanceValueFrom(b)) < 0 ? b : a;
             };
-            KadNode2 toBeDisconnected = disconnectRange.stream().filter(n->n.contacts.get(bitIndex).size() > 1)
-                    .reduce(xorFarther).orElse(null);
+            KadNode2 toBeDisconnected = disconnectRange.stream().filter(n->n.sizeAt(bitIndex) > 1)
+                    .reduce(farther).orElse(null);
             if (toBeDisconnected != null) {
                 Log.i(TAG, "  disconnect " + target.node.index + " and " + toBeDisconnected.node.index);
-                target.contacts.get(bitIndex).remove(toBeDisconnected);
-                toBeDisconnected.contacts.get(bitIndex).remove(target);
+                target.removeAt(bitIndex, toBeDisconnected);
+                toBeDisconnected.removeAt(bitIndex, target);
             } else {
                 // 原则四：如果所有的联系人都在当前 bit 位上缺少联系人，切断地址距离最远的节点，
-                toBeDisconnected = disconnectRange.stream().reduce(xorFarther).get();
-                target.contacts.get(bitIndex).remove(toBeDisconnected);
-                toBeDisconnected.contacts.get(bitIndex).remove(target);
+                toBeDisconnected = disconnectRange.stream().reduce(farther).get();
+                target.removeAt(bitIndex, toBeDisconnected);
+                toBeDisconnected.removeAt(bitIndex, target);
                 Log.i(TAG, "  disconnect " + target.node.index + " and " + toBeDisconnected.node.index);
                 // 然后推荐若干个联系人节点给对方。
                 List<KadNode2> suggestingRange = new ArrayList<>();
                 // 提供备用联系人时，先寻找相对于对方的距离与自己在同一个bit位联系人列表的节点。
                 for (int i = 0; i < bitIndex; i++) {
-                    suggestingRange.addAll(target.contacts.get(i));
+                    suggestingRange.addAll(target.dataAt(i));
                 }
                 // 且必须选择bit位上的联系人未满的节点
-                KadNode2 suggestedContact = suggestingRange.stream().filter(n->n.contacts.get(bitIndex).size() < K)
+                KadNode2 suggestedContact = suggestingRange.stream().filter(n->n.sizeAt(bitIndex) < K)
                         .findAny().orElse(null);
                 if (suggestedContact != null) {
-                    toBeDisconnected.contacts.get(bitIndex).add(suggestedContact);
-                    suggestedContact.contacts.get(bitIndex).add(toBeDisconnected);
+                    toBeDisconnected.addAt(bitIndex, suggestedContact);
+                    suggestedContact.addAt(bitIndex, toBeDisconnected);
                     Log.i(TAG, "  arrange connect " + toBeDisconnected.node.index + " and " + suggestedContact.node.index +" at(good) " + bitIndex);
                 } else {
                     // 如果这样的节点不存在，则在自己当前 bit 位列表联系人寻找一个与自己的地址距离(*)小于自己与对方距离的节点。
@@ -287,25 +276,25 @@ public class NetworkKad2 extends Network {
                     if (anotherBitIndex < 0) {
                         throw new RuntimeException("design issue");
                     }
-                    toBeDisconnected.contacts.get(anotherBitIndex).add(suggestedContact);
-                    suggestedContact.contacts.get(anotherBitIndex).add(toBeDisconnected);
+                    toBeDisconnected.addAt(anotherBitIndex, suggestedContact);
+                    suggestedContact.addAt(anotherBitIndex, toBeDisconnected);
                     Log.i(TAG, "  arrange connect " + toBeDisconnected.node.index + " and " + suggestedContact.node.index + " on " + anotherBitIndex);
                     // 1.调整 toBeDisconnected
                     // 2.调整 suggestedContact
-                    Message adjustToBeDisconnected = kh.obtainMessage(
-                            ADJUST,
-                            toBeDisconnected.node.index,
-                            anotherBitIndex);
-                    kh.sendMessageAtFrontOfQueue(adjustToBeDisconnected);
+                    scheduleToAdjust(toBeDisconnected, anotherBitIndex);
                     // 1.调整 suggestedContact
-                    Message adjustSuggestedContact = kh.obtainMessage(
-                            ADJUST,
-                            suggestedContact.node.index,
-                            bitIndex);
-                    kh.sendMessageAtFrontOfQueue(adjustSuggestedContact);
+                    scheduleToAdjust(suggestedContact, anotherBitIndex);
                 }
             }
         }
+    }
+
+    private void scheduleToAdjust(KadNode2 target, int bitIndex) {
+        Message adjustSuggestedContact = kh.obtainMessage(
+                ADJUST,
+                target.node.index,
+                bitIndex);
+        kh.sendMessageAtFrontOfQueue(adjustSuggestedContact);
     }
 
     /**
@@ -316,12 +305,12 @@ public class NetworkKad2 extends Network {
         if (reference.isAlreadyKnown(target)) {
             return;
         }
-        reference.contacts.stream().flatMap(c->c.stream()).forEach(contact -> {
+        reference.getAllContactsWithStream().forEach(contact -> {
             int bitIndex = KadNode2.getBitIndex(contact, target);
             if (bitIndex < 0) {
                 return;
             }
-            if (contact.contacts.get(bitIndex).isEmpty()) {
+            if (contact.isEmptyAt(bitIndex)) {
                 Message broadcastNewNode = kh.obtainMessage(
                         BROADCAST_NEW_NODE,
                         target.node.index,
@@ -346,20 +335,20 @@ public class NetworkKad2 extends Network {
         }
         // 2) 收到广播的节点，如果在与新节点的关联bit位不为空，则直接抛弃消息。
         int bitIndex = KadNode2.getBitIndex(target, reference);
-        if (!reference.contacts.get(bitIndex).isEmpty()) {
+        if (!reference.isEmptyAt(bitIndex)) {
             return;
         }
         // 3) 与新节点互相添加联系人
-        reference.contacts.get(bitIndex).add(target);
-        target.contacts.get(bitIndex).add(reference);
+        reference.addAt(bitIndex, target);
+        target.addAt(bitIndex, reference);
         Log.i(TAG, "  broad cast received and connect " + reference.node.index + " and " + target.node.index +" at " + bitIndex);
         // 4) 广播新节点给周围的节点
-        reference.contacts.stream().flatMap(c->c.stream()).forEach(contact -> {
+        reference.getAllContactsWithStream().forEach(contact -> {
             int anotherBitIndex = KadNode2.getBitIndex(contact, target);
             if (anotherBitIndex < 0) {
                 return;
             }
-            if (contact.contacts.get(anotherBitIndex).isEmpty()) {
+            if (contact.isEmptyAt(anotherBitIndex)) {
                 Message broadcastNewNode = kh.obtainMessage(
                         BROADCAST_NEW_NODE,
                         target.node.index,
@@ -369,11 +358,7 @@ public class NetworkKad2 extends Network {
             }
         });
         // 5) 如果互相添加联系人时任意节点的联系人满员，则根据选择性断开原则调整网络。
-        Message adjustTarget = kh.obtainMessage(
-                ADJUST,
-                target.node.index,
-                bitIndex);
-        kh.sendMessageAtFrontOfQueue(adjustTarget);
+        scheduleToAdjust(target, bitIndex);
     }
 
     public static class Report {

@@ -1,10 +1,10 @@
 package p2p.research.nezzar.kad2;
 
-import android.util.Log;
 import p2p.research.nezzar.Node;
 
 import java.math.BigInteger;
 import java.util.*;
+import java.util.stream.Stream;
 
 public class KadNode2 {
     public Node node;
@@ -12,7 +12,7 @@ public class KadNode2 {
     /**
      * big-endian
      */
-    public List<Set<KadNode2>> contacts;
+    private List<Set<KadNode2>> contacts;
 
     public NetworkKad2 network;
 
@@ -165,13 +165,7 @@ public class KadNode2 {
             if (getBitIndex(target, queryResult) == bitIndex) {
                 break;
             }
-            if (target.node.index == 72) {
-                Log.i("", String.format(" get next contact %d for %d on %d", queryResult.node.index, target.node.index, bitIndex));
-            }
             queryResult = queryResult.getNextJump(bits, target);
-        }
-        if (target.node.index == 72) {
-            Log.i("", String.format(" next contact is %s", queryResult == null ? "null" : String.valueOf(queryResult.node.index)));
         }
         return queryResult;
     }
@@ -184,36 +178,7 @@ public class KadNode2 {
      * 如果自己是最接近目标节点的节点，则返回 null。
      */
     public KadNode2 getNextJump(BitSet target) {
-        int bitIndex = KadNode2.getBitIndex(this, target);
-        Set<KadNode2> indexedContacts = contacts.get(bitIndex);
-        if (!indexedContacts.isEmpty()) {
-            for (KadNode2 indexedContact : indexedContacts) {
-                if (indexedContact.getBits().equals(target)) {
-                    return indexedContact;
-                }
-            }
-            return indexedContacts.stream().reduce((a,b)->{
-                int aPing = network.getPingDistance(this.node.index, a.node.index);
-                int bPing = network.getPingDistance(this.node.index, b.node.index);
-                return aPing < bPing ? a : b;
-            }).get();
-        } else {
-            Set<KadNode2> others = new HashSet<>();
-            for (int i = 0; i < bitIndex; i++) {
-                others.addAll(contacts.get(i));
-            }
-            others.add(this);
-            KadNode2 theOther = others.stream().reduce((a, b)->{
-                BigInteger disA = a.getAbsoluteDistanceValueFrom(target);
-                BigInteger disB = b.getAbsoluteDistanceValueFrom(target);
-                return disA.compareTo(disB) < 0 ? a : b;
-            }).get();
-            if (theOther == this) {
-                return null;
-            } else {
-                return theOther;
-            }
-        }
+        return getNextJump(target, null);
     }
 
     /**
@@ -228,7 +193,9 @@ public class KadNode2 {
         int bitIndex = KadNode2.getBitIndex(this, target);
         Set<KadNode2> indexedContacts = new HashSet<>();
         indexedContacts.addAll(contacts.get(bitIndex));
-        indexedContacts.remove(avoid);
+        if (avoid != null) {
+            indexedContacts.remove(avoid);
+        }
         if (!indexedContacts.isEmpty()) {
             for (KadNode2 indexedContact : indexedContacts) {
                 if (indexedContact.getBits().equals(target)) {
@@ -246,7 +213,9 @@ public class KadNode2 {
                 others.addAll(contacts.get(i));
             }
             others.add(this);
-            others.remove(avoid);
+            if (avoid != null) {
+                others.remove(avoid);
+            }
             KadNode2 theOther = others.stream().reduce((a, b)->{
                 BigInteger disA = a.getAbsoluteDistanceValueFrom(target);
                 BigInteger disB = b.getAbsoluteDistanceValueFrom(target);
@@ -260,4 +229,27 @@ public class KadNode2 {
         }
     }
 
+    public boolean addAt(int bitIndex, KadNode2 another) {
+        return contacts.get(bitIndex).add(another);
+    }
+
+    public int sizeAt(int bitIndex) {
+        return contacts.get(bitIndex).size();
+    }
+
+    public Collection<KadNode2> dataAt(int bitIndex) {
+        return Collections.unmodifiableSet(contacts.get(bitIndex));
+    }
+
+    public boolean removeAt(int bitIndex, KadNode2 node) {
+        return contacts.get(bitIndex).remove(node);
+    }
+
+    public Stream<KadNode2> getAllContactsWithStream() {
+        return contacts.stream().flatMap(c->c.stream());
+    }
+
+    public boolean isEmptyAt(int bitIndex) {
+        return contacts.get(bitIndex).isEmpty();
+    }
 }
